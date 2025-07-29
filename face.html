@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure ATM with Face Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            line-height: 1.6;
+        }
+
+        .atm-container {
+            background: #2c3e50;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 400px;
+            max-width: 90%;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .screen {
+            background: #34495e;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            text-align: center;
+            outline: none;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .key {
+            background: #3498db;
+            border: none;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 18px;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .key:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .key:active {
+            transform: translateY(0);
+        }
+
+        .key.clear {
+            background: #e74c3c;
+        }
+
+        .key.clear:hover {
+            background: #c0392b;
+        }
+
+        .key.enter {
+            background: #2ecc71;
+            grid-column: span 3;
+        }
+
+        .key.enter:hover {
+            background: #27ae60;
+        }
+
+        .btn {
+            background: #3498db;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin: 5px;
+            width: 80%;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .webcam-container {
+            margin-bottom: 20px;
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .webcam-container video {
+            width: 100%;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .webcam-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .success {
+            background-color: #27ae60;
+        }
+
+        .error {
+            background-color: #e74c3c;
+        }
+
+        .processing {
+            background-color: #f39c12;
+        }
+
+        .back-btn {
+            background: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        .back-btn:hover {
+            background: #95a5a6;
+        }
+
+        .pin-dots {
+            letter-spacing: 10px;
+            font-size: 24px;
+            margin: 15px 0;
+        }
+
+        .btn-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .liveness-instruction {
+            background-color: #3498db;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #2c3e50;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background-color: #2ecc71;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="atm-container">
+        <!-- Language Selection Screen -->
+        <div id="language-screen">
+            <h1>Welcome to ATM</h1>
+            <h3 style="color: #3498db;">PLEASE SELECT YOUR LANGUAGE</h3>
+            <br>
+            <div class="btn-container">
+                <button class="btn" onclick="showServiceScreen()" aria-label="Select English">ENGLISH</button>
+                <button class="btn" onclick="showServiceScreen()" aria-label="Select Tamil">TAMIL</button>
+                <button class="btn" onclick="showServiceScreen()" aria-label="Select Hindi">HINDI</button>
+            </div>
+        </div>
+
+        <!-- Service Selection Screen -->
+        <div id="service-screen" class="hidden">
+            <h1>Select Service</h1>
+            <div class="screen">
+                <div class="btn-container">
+                    <button class="btn" onclick="showAmountScreen('withdraw')">Withdraw</button>
+                    <button class="btn" onclick="showAmountScreen('deposit')">Deposit</button>
+                    <button class="btn" onclick="showAmountScreen('balance')">Check Balance</button>
+                    <button class="btn back-btn" onclick="goBackToLanguage()">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount Entry Screen -->
+        <div id="amount-screen" class="hidden">
+            <h1>Enter Amount</h1>
+            <div class="screen">
+                <input type="text" placeholder="Enter Amount" class="input-field" id="amount" readonly>
+            </div>
+            <div class="keypad">
+                <button class="key" onclick="appendNumber('1')">1</button>
+                <button class="key" onclick="appendNumber('2')">2</button>
+                <button class="key" onclick="appendNumber('3')">3</button>
+                <button class="key" onclick="appendNumber('4')">4</button>
+                <button class="key" onclick="appendNumber('5')">5</button>
+                <button class="key" onclick="appendNumber('6')">6</button>
+                <button class="key" onclick="appendNumber('7')">7</button>
+                <button class="key" onclick="appendNumber('8')">8</button>
+                <button class="key" onclick="appendNumber('9')">9</button>
+                <button class="key clear" onclick="clearAmount()">C</button>
+                <button class="key" onclick="appendNumber('0')">0</button>
+                <button class="key enter" onclick="validateAmount()">Enter</button>
+            </div>
+            <button class="btn back-btn" onclick="goBackToService()">Back</button>
+        </div>
+
+        <!-- Face Authentication Screen -->
+        <div id="face-auth-screen" class="hidden">
+            <h1>Face Authentication</h1>
+            <div class="screen">
+                <div class="webcam-container">
+                    <video id="webcam" autoplay playsinline aria-label="Camera feed for face authentication"></video>
+                    <canvas id="face-canvas"></canvas>
+                </div>
+                <div id="capture-status" class="status-message hidden" role="status"></div>
+                <div class="btn-container">
+                    <button class="btn" onclick="captureFace()" id="capture-btn">Capture</button>
+                    <button class="btn" onclick="retryCapture()" style="background: #f39c12;">Retry</button>
+                    <button class="btn back-btn" onclick="goBackToAmount()">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liveness Detection Screen -->
+        <div id="liveness-screen" class="hidden">
+            <h1>Liveness Check</h1>
+            <div class="screen">
+                <div class="liveness-instruction" id="liveness-instruction">Please shake your head left and right</div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="liveness-progress"></div>
+                </div>
+                <div class="webcam-container">
+                    <video id="liveness-webcam" autoplay playsinline aria-label="Camera feed for liveness check"></video>
+                    <canvas id="liveness-canvas"></canvas>
+                </div>
+                <div id="liveness-status" class="status-message hidden" role="status"></div>
+                <div class="btn-container">
+                    <button class="btn back-btn" onclick="goBackToFaceAuth()">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PIN Entry Screen -->
+        <div id="pin-screen" class="hidden">
+            <h1>Enter PIN</h1>
+            <div class="screen">
+                <div class="pin-dots" id="pin-display">••••</div>
+                <input type="password" class="hidden" id="pin-input" maxlength="4">
+            </div>
+            <div class="keypad">
+                <button class="key" onclick="appendPin('1')">1</button>
+                <button class="key" onclick="appendPin('2')">2</button>
+                <button class="key" onclick="appendPin('3')">3</button>
+                <button class="key" onclick="appendPin('4')">4</button>
+                <button class="key" onclick="appendPin('5')">5</button>
+                <button class="key" onclick="appendPin('6')">6</button>
+                <button class="key" onclick="appendPin('7')">7</button>
+                <button class="key" onclick="appendPin('8')">8</button>
+                <button class="key" onclick="appendPin('9')">9</button>
+                <button class="key clear" onclick="clearPin()">C</button>
+                <button class="key" onclick="appendPin('0')">0</button>
+                <button class="key enter" onclick="completeTransaction()">Enter</button>
+            </div>
+            <button class="btn back-btn" onclick="goBackToLiveness()">Back</button>
+        </div>
+
+        <!-- Transaction Complete Screen -->
+        <div id="complete-screen" class="hidden">
+            <h1>Transaction Complete</h1>
+            <div class="screen">
+                <p id="transaction-message"></p>
+                <div class="btn-container">
+                    <button class="btn" onclick="restartATM()">Finish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Include BlazeFace Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
+    <!-- Include Facemesh Model for more detailed facial landmarks -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>
+
+    <script>
+        // ATM State Manager
+        const ATMState = (function() {
+            let currentService = '';
+            let transactionAmount = 0;
+            let capturedFaceImage = null;
+            let faceModel = null;
+            let facemeshModel = null;
+            let faceDetectionInterval = null;
+            let livenessDetectionInterval = null;
+            let pinAttempts = 0;
+            const maxPinAttempts = 3;
+            
+            // For liveness detection
+            let headPoseHistory = [];
+            let livenessState = 'waiting'; // waiting, left, right, complete
+            let livenessProgress = 0;
+            
+            // Simulated user data
+            const userAccount = {
+                id: 'user123',
+                name: 'John Doe',
+                balance: 5000,
+                pin: '1234',
+                faceData: 'simulated_face_embeddings'
+            };
+
+            function getCurrentService() {
+                return currentService;
+            }
+
+            function setCurrentService(service) {
+                currentService = service;
+            }
+
+            function getTransactionAmount() {
+                return transactionAmount;
+            }
+
+            function setTransactionAmount(amount) {
+                transactionAmount = amount;
+            }
+
+            function getCapturedFaceImage() {
+                return capturedFaceImage;
+            }
+
+            function setCapturedFaceImage(image) {
+                capturedFaceImage = image;
+            }
+
+            function getFaceModel() {
+                return faceModel;
+            }
+
+            function setFaceModel(model) {
+                faceModel = model;
+            }
+
+            function getFacemeshModel() {
+                return facemeshModel;
+            }
+
+            function setFacemeshModel(model) {
+                facemeshModel = model;
+            }
+
+            function getFaceDetectionInterval() {
+                return faceDetectionInterval;
+            }
+
+            function setFaceDetectionInterval(interval) {
+                faceDetectionInterval = interval;
+            }
+
+            function getLivenessDetectionInterval() {
+                return livenessDetectionInterval;
+            }
+
+            function setLivenessDetectionInterval(interval) {
+                livenessDetectionInterval = interval;
+            }
+
+            function incrementPinAttempts() {
+                pinAttempts++;
+                return pinAttempts;
+            }
+
+            function resetPinAttempts() {
+                pinAttempts = 0;
+            }
+
+            function getMaxPinAttempts() {
+                return maxPinAttempts;
+            }
+
+            function getUserAccount() {
+                return userAccount;
+            }
+
+            // Liveness detection functions
+            function resetLivenessDetection() {
+                headPoseHistory = [];
+                livenessState = 'waiting';
+                livenessProgress = 0;
+            }
+
+            function updateLivenessState(newState) {
+                livenessState = newState;
+            }
+
+            function getLivenessState() {
+                return livenessState;
+            }
+
+            function addHeadPose(pose) {
+                headPoseHistory.push(pose);
+                if (headPoseHistory.length > 10) { // Keep last 10 poses
+                    headPoseHistory.shift();
+                }
+            }
+
+            function getHeadPoseHistory() {
+                return headPoseHistory;
+            }
+
+            function updateLivenessProgress(progress) {
+                livenessProgress = Math.min(100, Math.max(0, progress));
+                return livenessProgress;
+            }
+
+            function getLivenessProgress() {
+                return livenessProgress;
+            }
+
+            return {
+                getCurrentService,
+                setCurrentService,
+                getTransactionAmount,
+                setTransactionAmount,
+                getCapturedFaceImage,
+                setCapturedFaceImage,
+                getFaceModel,
+                setFaceModel,
+                getFacemeshModel,
+                setFacemeshModel,
+                getFaceDetectionInterval,
+                setFaceDetectionInterval,
+                getLivenessDetectionInterval,
+                setLivenessDetectionInterval,
+                incrementPinAttempts,
+                resetPinAttempts,
+                getMaxPinAttempts,
+                getUserAccount,
+                resetLivenessDetection,
+                updateLivenessState,
+                getLivenessState,
+                addHeadPose,
+                getHeadPoseHistory,
+                updateLivenessProgress,
+                getLivenessProgress
+            };
+        })();
+
+        // DOM Elements
+        const elements = {
+            video: document.getElementById('webcam'),
+            canvas: document.getElementById('face-canvas'),
+            ctx: document.getElementById('face-canvas').getContext('2d'),
+            livenessVideo: document.getElementById('liveness-webcam'),
+            livenessCanvas: document.getElementById('liveness-canvas'),
+            livenessCtx: document.getElementById('liveness-canvas').getContext('2d'),
+            captureStatus: document.getElementById('capture-status'),
+            livenessStatus: document.getElementById('liveness-status'),
+            livenessInstruction: document.getElementById('liveness-instruction'),
+            livenessProgress: document.getElementById('liveness-progress'),
+            pinInput: document.getElementById('pin-input'),
+            pinDisplay: document.getElementById('pin-display'),
+            amountInput: document.getElementById('amount'),
+            transactionMessage: document.getElementById('transaction-message')
+        };
+
+        // Screen Navigation Functions
+        function showServiceScreen() {
+            document.getElementById('language-screen').classList.add('hidden');
+            document.getElementById('service-screen').classList.remove('hidden');
+        }
+
+        function showAmountScreen(service) {
+            ATMState.setCurrentService(service);
+            document.getElementById('service-screen').classList.add('hidden');
+            document.getElementById('amount-screen').classList.remove('hidden');
+            elements.amountInput.value = '';
+        }
+
+        function validateAmount() {
+            const amount = elements.amountInput.value;
+            
+            if (!amount && ATMState.getCurrentService() !== 'balance') {
+                showStatusMessage('Please enter an amount first.', 'error');
+                return;
+            }
+            
+            if (amount && isNaN(amount)) {
+                showStatusMessage('Please enter a valid number.', 'error');
+                return;
+            }
+            
+            const numericAmount = parseFloat(amount);
+            ATMState.setTransactionAmount(numericAmount);
+            
+            if (ATMState.getCurrentService() === 'withdraw' && 
+                numericAmount > ATMState.getUserAccount().balance) {
+                showStatusMessage('Insufficient funds.', 'error');
+                return;
+            }
+            
+            showFaceAuthScreen();
+        }
+
+        function showFaceAuthScreen() {
+            document.getElementById('amount-screen').classList.add('hidden');
+            document.getElementById('face-auth-screen').classList.remove('hidden');
+            
+            startWebcam()
+                .then(detectFaces)
+                .catch(error => {
+                    console.error('Error starting webcam:', error);
+                    showStatusMessage('Error accessing camera. Please enable permissions.', 'error');
+                });
+        }
+
+        function showLivenessScreen() {
+            document.getElementById('face-auth-screen').classList.add('hidden');
+            document.getElementById('liveness-screen').classList.remove('hidden');
+            
+            // Reset liveness detection state
+            ATMState.resetLivenessDetection();
+            
+            // Start liveness detection
+            startLivenessWebcam()
+                .then(detectLiveness)
+                .catch(error => {
+                    console.error('Error starting liveness webcam:', error);
+                    showLivenessStatus('Error accessing camera. Please try again.', 'error');
+                });
+        }
+
+        function showPinScreen() {
+            document.getElementById('liveness-screen').classList.add('hidden');
+            document.getElementById('pin-screen').classList.remove('hidden');
+            clearPin();
+            ATMState.resetPinAttempts();
+        }
+
+        function showCompleteScreen(message) {
+            document.getElementById('pin-screen').classList.add('hidden');
+            document.getElementById('complete-screen').classList.remove('hidden');
+            elements.transactionMessage.textContent = message;
+        }
+
+        // Back navigation functions
+        function goBackToLanguage() {
+            document.getElementById('service-screen').classList.add('hidden');
+            document.getElementById('language-screen').classList.remove('hidden');
+            cleanupWebcam();
+        }
+
+        function goBackToService() {
+            document.getElementById('amount-screen').classList.add('hidden');
+            document.getElementById('service-screen').classList.remove('hidden');
+            cleanupWebcam();
+        }
+
+        function goBackToFaceAuth() {
+            document.getElementById('liveness-screen').classList.add('hidden');
+            document.getElementById('face-auth-screen').classList.remove('hidden');
+            cleanupLivenessWebcam();
+            startWebcam().then(detectFaces).catch(console.error);
+        }
+
+        function goBackToLiveness() {
+            document.getElementById('pin-screen').classList.add('hidden');
+            document.getElementById('liveness-screen').classList.remove('hidden');
+            startLivenessWebcam().then(detectLiveness).catch(console.error);
+        }
+
+        function goBackToAmount() {
+            document.getElementById('face-auth-screen').classList.add('hidden');
+            document.getElementById('amount-screen').classList.remove('hidden');
+            cleanupWebcam();
+        }
+
+        // Keypad Functions
+        function appendNumber(number) {
+            const amountInput = elements.amountInput;
+            if (amountInput.value === '0' && number === '0') return;
+            if (amountInput.value === '0') amountInput.value = '';
+            amountInput.value += number;
+        }
+
+        function clearAmount() {
+            elements.amountInput.value = '';
+        }
+
+        function appendPin(number) {
+            const pinInput = elements.pinInput;
+            if (pinInput.value.length < 4) {
+                pinInput.value += number;
+                updatePinDisplay();
+            }
+        }
+
+        function clearPin() {
+            elements.pinInput.value = '';
+            updatePinDisplay();
+        }
+
+        function updatePinDisplay() {
+            const pinLength = elements.pinInput.value.length;
+            let displayText = '';
+            
+            for (let i = 0; i < 4; i++) {
+                displayText += i < pinLength ? '•' : '◦';
+            }
+            
+            elements.pinDisplay.textContent = displayText;
+        }
+
+        // Face Authentication Functions
+        async function loadModel() {
+            if (!ATMState.getFaceModel()) {
+                const model = await blazeface.load();
+                ATMState.setFaceModel(model);
+                console.log('BlazeFace model loaded.');
+            }
+            return ATMState.getFaceModel();
+        }
+
+        async function loadFacemeshModel() {
+            if (!ATMState.getFacemeshModel()) {
+                const model = await facemesh.load();
+                ATMState.setFacemeshModel(model);
+                console.log('Facemesh model loaded.');
+            }
+            return ATMState.getFacemeshModel();
+        }
+
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                elements.video.srcObject = stream;
+
+                return new Promise((resolve) => {
+                    elements.video.onloadedmetadata = () => {
+                        elements.canvas.width = elements.video.videoWidth;
+                        elements.canvas.height = elements.video.videoHeight;
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                showStatusMessage('Could not access webcam. Please enable camera permissions.', 'error');
+                return Promise.reject(error);
+            }
+        }
+
+        async function startLivenessWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                elements.livenessVideo.srcObject = stream;
+
+                return new Promise((resolve) => {
+                    elements.livenessVideo.onloadedmetadata = () => {
+                        elements.livenessCanvas.width = elements.livenessVideo.videoWidth;
+                        elements.livenessCanvas.height = elements.livenessVideo.videoHeight;
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error('Error accessing liveness webcam:', error);
+                showLivenessStatus('Could not access webcam. Please enable camera permissions.', 'error');
+                return Promise.reject(error);
+            }
+        }
+
+        async function detectFaces() {
+            const model = await loadModel();
+
+            if (ATMState.getFaceDetectionInterval()) {
+                clearInterval(ATMState.getFaceDetectionInterval());
+            }
+
+            const interval = setInterval(async () => {
+                elements.ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+
+                try {
+                    const predictions = await model.estimateFaces(elements.video, false);
+
+                    predictions.forEach(prediction => {
+                        const start = prediction.topLeft;
+                        const end = prediction.bottomRight;
+                        const size = [end[0] - start[0], end[1] - start[1]];
+
+                        elements.ctx.strokeStyle = prediction.probability > 0.9 ? 'green' : 'red';
+                        elements.ctx.lineWidth = 2;
+                        elements.ctx.strokeRect(start[0], start[1], size[0], size[1]);
+
+                        elements.ctx.fillStyle = prediction.probability > 0.9 ? 'green' : 'red';
+                        elements.ctx.font = '12px Arial';
+                        elements.ctx.fillText(
+                            `Face: ${Math.round(prediction.probability * 100)}%`,
+                            start[0],
+                            start[1] > 10 ? start[1] - 5 : 10
+                        );
+                    });
+                } catch (error) {
+                    console.error('Face detection error:', error);
+                }
+            }, 100);
+            
+            ATMState.setFaceDetectionInterval(interval);
+        }
+
+        async function detectLiveness() {
+            const model = await loadFacemeshModel();
+            
+            if (ATMState.getLivenessDetectionInterval()) {
+                clearInterval(ATMState.getLivenessDetectionInterval());
+            }
+
+            const interval = setInterval(async () => {
+                elements.livenessCtx.clearRect(0, 0, elements.livenessCanvas.width, elements.livenessCanvas.height);
+
+                try {
+                    const predictions = await model.estimateFaces(elements.livenessVideo);
+                    
+                    if (predictions.length > 0) {
+                        const keypoints = predictions[0].scaledMesh;
+                        
+                        // Draw all keypoints (optional, for visualization)
+                        for (let i = 0; i < keypoints.length; i++) {
+                            const [x, y] = keypoints[i];
+                            elements.livenessCtx.fillStyle = 'aqua';
+                            elements.livenessCtx.fillRect(x - 1, y - 1, 2, 2);
+                        }
+                        
+                        // Calculate head pose based on keypoints
+                        const headPose = estimateHeadPose(keypoints);
+                        ATMState.addHeadPose(headPose);
+                        
+                        // Update liveness detection
+                        updateLivenessDetection(headPose);
+                    }
+                } catch (error) {
+                    console.error('Liveness detection error:', error);
+                }
+            }, 100);
+            
+            ATMState.setLivenessDetectionInterval(interval);
+        }
+
+        function estimateHeadPose(keypoints) {
+            // Simplified head pose estimation based on facial landmarks
+            // In a real application, you would use a more sophisticated method
+            
+            // Get keypoints for nose, left eye, right eye
+            const noseTip = keypoints[1]; // Keypoint 1 is nose tip
+            const leftEye = keypoints[33]; // Keypoint 33 is left eye
+            const rightEye = keypoints[263]; // Keypoint 263 is right eye
+            
+            // Calculate eye midpoint
+            const eyeMidpoint = [
+                (leftEye[0] + rightEye[0]) / 2,
+                (leftEye[1] + rightEye[1]) / 2
+            ];
+            
+            // Calculate horizontal offset of nose from eye midpoint
+            const horizontalOffset = noseTip[0] - eyeMidpoint[0];
+            
+            // Normalize the offset based on face width
+            const faceWidth = Math.abs(leftEye[0] - rightEye[0]);
+            const normalizedOffset = horizontalOffset / (faceWidth / 2);
+            
+            return {
+                normalizedOffset,
+                timestamp: Date.now()
+            };
+        }
+
+        function updateLivenessDetection(currentPose) {
+            const poseHistory = ATMState.getHeadPoseHistory();
+            const currentState = ATMState.getLivenessState();
+            let newState = currentState;
+            let progress = ATMState.getLivenessProgress();
+            
+            // We need at least 5 poses to make a determination
+            if (poseHistory.length < 5) return;
+            
+            // Calculate average offset over last few frames
+            const recentPoses = poseHistory.slice(-5);
+            const avgOffset = recentPoses.reduce((sum, pose) => sum + pose.normalizedOffset, 0) / recentPoses.length;
+            
+            // State machine for liveness detection
+            switch(currentState) {
+                case 'waiting':
+                    if (avgOffset < -0.3) { // Head turned left
+                        newState = 'left';
+                        elements.livenessInstruction.textContent = 'Now turn your head to the right';
+                        progress = 25;
+                    }
+                    break;
+                case 'left':
+                    if (avgOffset > 0.3) { // Head turned right
+                        newState = 'right';
+                        elements.livenessInstruction.textContent = 'Great! Now turn back to center';
+                        progress = 75;
+                    }
+                    break;
+                case 'right':
+                    if (Math.abs(avgOffset) < 0.1) { // Head centered
+                        newState = 'complete';
+                        progress = 100;
+                    }
+                    break;
+                case 'complete':
+                    // Liveness check passed
+                    showLivenessStatus('Liveness verification successful!', 'success');
+                    setTimeout(() => {
+                        showPinScreen();
+                        cleanupLivenessWebcam();
+                    }, 1500);
+                    break;
+            }
+            
+            // Update state and progress if changed
+            if (newState !== currentState) {
+                ATMState.updateLivenessState(newState);
+            }
+            
+            if (progress !== ATMState.getLivenessProgress()) {
+                ATMState.updateLivenessProgress(progress);
+                elements.livenessProgress.style.width = `${progress}%`;
+            }
+        }
+
+        async function captureFace() {
+            try {
+                showStatusMessage('Processing face capture...', 'processing');
+                document.getElementById('capture-btn').disabled = true;
+                
+                const model = await loadModel();
+                const predictions = await model.estimateFaces(elements.video, false);
+                
+                if (predictions.length === 0) {
+                    showStatusMessage('No face detected. Please position your face in the frame.', 'error');
+                    document.getElementById('capture-btn').disabled = false;
+                    return;
+                }
+                
+                if (predictions.length > 1) {
+                    showStatusMessage('Multiple faces detected. Only one person should be in frame.', 'error');
+                    document.getElementById('capture-btn').disabled = false;
+                    return;
+                }
+                
+                const face = predictions[0];
+                if (face.probability < 0.9) {
+                    showStatusMessage('Face not clear enough. Please look directly at the camera.', 'error');
+                    document.getElementById('capture-btn').disabled = false;
+                    return;
+                }
+                
+                ATMState.setCapturedFaceImage(captureFrame());
+                
+                // Simulate face matching with database
+                setTimeout(() => {
+                    const isMatch = matchFace();
+                    
+                    if (isMatch) {
+                        showStatusMessage(`Authentication successful! Welcome ${ATMState.getUserAccount().name}`, 'success');
+                        setTimeout(() => {
+                            cleanupWebcam();
+                            showLivenessScreen();
+                        }, 1500);
+                    } else {
+                        showStatusMessage('Face not recognized. Please try again or contact bank.', 'error');
+                        document.getElementById('capture-btn').disabled = false;
+                    }
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error capturing face:', error);
+                showStatusMessage('Error during face capture. Please try again.', 'error');
+                document.getElementById('capture-btn').disabled = false;
+            }
+        }
+
+        function captureFrame() {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = elements.video.videoWidth;
+            tempCanvas.height = elements.video.videoHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(elements.video, 0, 0, tempCanvas.width, tempCanvas.height);
+            return tempCanvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        function matchFace() {
+            // In a real app, this would involve proper face recognition
+            console.log('Simulating face match...');
+            return Math.random() > 0.2; // 80% success rate for demo
+        }
+
+        function retryCapture() {
+            elements.captureStatus.classList.add('hidden');
+            startWebcam().then(detectFaces).catch(console.error);
+            document.getElementById('capture-btn').disabled = false;
+        }
+
+        // Transaction Functions
+        function completeTransaction() {
+            const enteredPin = elements.pinInput.value;
+            
+            if (enteredPin.length !== 4) {
+                showStatusMessage('Please enter a 4-digit PIN.', 'error');
+                return;
+            }
+            
+            const userAccount = ATMState.getUserAccount();
+            const currentService = ATMState.getCurrentService();
+            const amount = ATMState.getTransactionAmount();
+            
+            // Verify PIN
+            if (enteredPin !== userAccount.pin) {
+                const attempts = ATMState.incrementPinAttempts();
+                const remainingAttempts = ATMState.getMaxPinAttempts() - attempts;
+                
+                if (remainingAttempts > 0) {
+                    showStatusMessage(`Incorrect PIN. ${remainingAttempts} attempts remaining.`, 'error');
+                    clearPin();
+                } else {
+                    showStatusMessage('Too many incorrect attempts. Card retained. Please contact bank.', 'error');
+                    setTimeout(restartATM, 3000);
+                }
+                return;
+            }
+            
+            // Process transaction
+            let message = '';
+            switch(currentService) {
+                case 'withdraw':
+                    userAccount.balance -= amount;
+                    message = `Withdrawal successful! $${amount.toFixed(2)} dispensed. New balance: $${userAccount.balance.toFixed(2)}`;
+                    break;
+                case 'deposit':
+                    userAccount.balance += amount;
+                    message = `Deposit successful! $${amount.toFixed(2)} added to your account. New balance: $${userAccount.balance.toFixed(2)}`;
+                    break;
+                case 'balance':
+                    message = `Your current balance is: $${userAccount.balance.toFixed(2)}`;
+                    break;
+                default:
+                    message = 'Transaction completed.';
+            }
+            
+            showCompleteScreen(message);
+        }
+
+        // Utility Functions
+        function showStatusMessage(message, type) {
+            elements.captureStatus.textContent = message;
+            elements.captureStatus.className = 'status-message';
+            elements.captureStatus.classList.add(type);
+            elements.captureStatus.classList.remove('hidden');
+        }
+
+        function showLivenessStatus(message, type) {
+            elements.livenessStatus.textContent = message;
+            elements.livenessStatus.className = 'status-message';
+            elements.livenessStatus.classList.add(type);
+            elements.livenessStatus.classList.remove('hidden');
+        }
+
+        function cleanupWebcam() {
+            if (elements.video.srcObject) {
+                elements.video.srcObject.getTracks().forEach(track => track.stop());
+            }
+            if (ATMState.getFaceDetectionInterval()) {
+                clearInterval(ATMState.getFaceDetectionInterval());
+                ATMState.setFaceDetectionInterval(null);
+            }
+            elements.ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+        }
+
+        function cleanupLivenessWebcam() {
+            if (elements.livenessVideo.srcObject) {
+                elements.livenessVideo.srcObject.getTracks().forEach(track => track.stop());
+            }
+            if (ATMState.getLivenessDetectionInterval()) {
+                clearInterval(ATMState.getLivenessDetectionInterval());
+                ATMState.setLivenessDetectionInterval(null);
+            }
+            elements.livenessCtx.clearRect(0, 0, elements.livenessCanvas.width, elements.livenessCanvas.height);
+        }
+
+        function restartATM() {
+            cleanupWebcam();
+            cleanupLivenessWebcam();
+            window.location.reload();
+        }
+
+        // Clean up when leaving the page
+        window.addEventListener('beforeunload', () => {
+            cleanupWebcam();
+            cleanupLivenessWebcam();
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            elements.pinInput.type = 'password';
+        });
+    </script>
+</body>
+</html>
